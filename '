@@ -32,9 +32,6 @@ impl Chip {
 
     pub fn execute_instruction(&mut self) -> Result<(), Error> {
         let high = self.memory[self.pc as usize] as u16;
-        if (self.pc + 1) >= 4096 {
-            return Ok(());
-        }
         let low = self.memory[(self.pc + 1) as usize] as u16;
         let instruction = (high << 8) | low;
 
@@ -42,6 +39,7 @@ impl Chip {
 
         self.pc += 1;
 
+        println!("nibble => {}", nibble);
         match nibble {
             0x0000 => match instruction {
                 0x00E0 => {
@@ -53,24 +51,19 @@ impl Chip {
                 _ => {}
             },
             0x1000 => {
-                println!("Jump");
+                println!("Jump")
             }
             0x2000 => {
-                println!("Call subroutine");
-            }
-            0x6000 => {
-                println!("Set register vx");
-            }
-            0x7000 => {
-                println!("Add value to register vx");
-            }
-            0xA000 => {
-                println!("Set index register I");
-            }
-            0xD000 => {
-                println!("Draw");
+                println!("Call subroutine")
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn test_loop(&mut self) -> Result<(), Error> {
+        while self.pc < 4096 {
+            self.execute_instruction()?;
         }
         Ok(())
     }
