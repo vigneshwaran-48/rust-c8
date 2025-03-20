@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, Error, Read},
     thread,
@@ -14,15 +15,18 @@ pub struct Chip {
     memory: [u8; 4096],
     pc: u16,
     display: Display,
+    registers: [u8; 16],
 }
 
 impl Chip {
     pub fn new() -> Self {
         let display = Display::init().expect("Error while initializing display");
+
         Self {
             memory: [0; 4096],
             pc: 0x200,
             display,
+            registers: [0; 16],
         }
     }
 
@@ -64,13 +68,18 @@ impl Chip {
                 _ => {}
             },
             0x1000 => {
-                println!("Jump");
+                let jump_addr = instruction & 0x0FFF;
+                self.pc = jump_addr;
+                println!("Jumped to {}", jump_addr);
             }
             0x2000 => {
                 println!("Call subroutine");
             }
             0x6000 => {
-                println!("Set register vx");
+                let register = ((instruction & 0x0F00) >> 8) as usize;
+                let value = (instruction & 0x00FF) as u8;
+                self.registers[register] = value;
+                println!("Setted register {} value to {}", register, value);
             }
             0x7000 => {
                 println!("Add value to register vx");
