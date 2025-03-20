@@ -1,3 +1,5 @@
+use std::io::Error;
+
 use sdl2::{EventPump, Sdl, VideoSubsystem, pixels::Color, render::Canvas, video::Window};
 
 pub struct Display {
@@ -40,5 +42,10 @@ impl Display {
 
     pub fn event_pump(&self) -> Result<EventPump, String> {
         self.context.event_pump()
+    }
+
+    pub fn clear_screen(&mut self) -> Result<(), Error> {
+        self.canvas.clear();
+        Ok(())
     }
 }

@@ -1,18 +1,28 @@
 use std::{
     fs::File,
     io::{BufReader, Error, Read},
+    thread,
+    time::Duration,
 };
+
+use sdl2::event::Event;
+use sdl2::keyboard::Keycode;
+
+use super::Display;
 
 pub struct Chip {
     memory: [u8; 4096],
     pc: u16,
+    display: Display,
 }
 
 impl Chip {
     pub fn new() -> Self {
+        let display = Display::init().expect("Error while initializing display");
         Self {
             memory: [0; 4096],
             pc: 0x200,
+            display,
         }
     }
 
@@ -46,6 +56,7 @@ impl Chip {
             0x0000 => match instruction {
                 0x00E0 => {
                     println!("Clear screen");
+                    self.display.clear_screen()?;
                 }
                 0x00EE => {
                     println!("Return from subroutine");
@@ -71,6 +82,27 @@ impl Chip {
                 println!("Draw");
             }
             _ => {}
+        }
+        Ok(())
+    }
+
+    pub fn start_loop(&mut self) -> Result<(), String> {
+        let mut event_pump = self.display.event_pump()?;
+
+        'running: loop {
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. }
+                    | Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..
+                    } => break 'running,
+                    _ => {}
+                }
+            }
+            self.execute_instruction()
+                .map_err(|e| format!("Failed to execute instruction: {}", e))?;
+            thread::sleep(Duration::from_millis(2));
         }
         Ok(())
     }
