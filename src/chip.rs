@@ -16,6 +16,7 @@ pub struct Chip {
     pc: u16,
     display: Display,
     registers: [u8; 16],
+    i: u16,
 }
 
 impl Chip {
@@ -27,6 +28,7 @@ impl Chip {
             pc: 0x200,
             display,
             registers: [0; 16],
+            i: 0,
         }
     }
 
@@ -82,15 +84,24 @@ impl Chip {
                 println!("Setted register {} value to {}", register, value);
             }
             0x7000 => {
-                println!("Add value to register vx");
+                let register = ((instruction & 0x0F00) >> 8) as usize;
+                let value = (instruction & 0x00FF) as u8;
+                self.registers[register] += value;
+                println!("Added {} to register {}", value, register);
             }
             0xA000 => {
-                println!("Set index register I");
+                self.i = instruction & 0x0FFF;
+                println!("Setting I register to {}", self.i);
             }
             0xD000 => {
-                println!("Draw");
+                let x = (instruction & 0x0F00) >> 8;
+                let y = (instruction & 0x00F0) >> 4;
+                let n = instruction & 0x000F;
+                println!("Draw call for {x} {y} {n}");
             }
-            _ => {}
+            _ => {
+                println!("Unmatched instructoin {nibble}");
+            }
         }
         Ok(())
     }
