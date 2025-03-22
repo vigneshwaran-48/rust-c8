@@ -95,22 +95,55 @@ impl Chip {
                 let address = instruction & 0x0FFF;
                 self.pc = address;
             }
+            // Skip if equal to value
+            0x3000 => {
+                let x = instruction & 0x0F00;
+                let value = instruction & 0x00FF;
+                if self.get_register_value(x as usize) == value as u8 {
+                    self.pc += 2;
+                }
+            }
+            // Skip if not equal to value
+            0x4000 => {
+                let x = instruction & 0x0F00;
+                let value = instruction & 0x00FF;
+                if self.get_register_value(x as usize) != value as u8 {
+                    self.pc += 2;
+                }
+            }
+            // Skip if both register values equal
+            0x5000 => {
+                let x = instruction & 0x0F00;
+                let y = instruction & 0x00F0;
+                if self.get_register_value(x as usize) == self.get_register_value(y as usize) {
+                    self.pc += 2;
+                }
+            }
+            // Set the value to register
             0x6000 => {
                 let register = ((instruction & 0x0F00) >> 8) as usize;
                 let value = (instruction & 0x00FF) as u8;
                 self.registers[register] = value;
-                println!("Setted register {} value to {}", register, value);
             }
+            // Add the value to register
             0x7000 => {
                 let register = ((instruction & 0x0F00) >> 8) as usize;
                 let value = (instruction & 0x00FF) as u8;
                 self.registers[register] += value;
-                println!("Added {} to register {}", value, register);
             }
+            //Skip if both register values not equal
+            0x9000 => {
+                let x = instruction & 0x0F00;
+                let y = instruction & 0x00F0;
+                if self.get_register_value(x as usize) != self.get_register_value(y as usize) {
+                    self.pc += 2;
+                }
+            }
+            // Set the value to I register
             0xA000 => {
                 self.i = instruction & 0x0FFF;
-                println!("Setting I register to {}", self.i);
             }
+            // Draw to the screen from the given position
             0xD000 => {
                 let x = (instruction & 0x0F00) >> 8;
                 let y = (instruction & 0x00F0) >> 4;
@@ -163,5 +196,9 @@ impl Chip {
             thread::sleep(Duration::from_millis(2));
         }
         Ok(())
+    }
+
+    fn get_register_value(&self, register_index: usize) -> u8 {
+        return self.memory[self.registers[register_index] as usize];
     }
 }
