@@ -97,25 +97,25 @@ impl Chip {
             }
             // Skip if equal to value
             0x3000 => {
-                let x = instruction & 0x0F00;
+                let x = (instruction & 0x0F00) >> 8;
                 let value = instruction & 0x00FF;
-                if self.get_register_value(x as usize) == value as u8 {
+                if self.registers[x as usize] == value as u8 {
                     self.pc += 2;
                 }
             }
             // Skip if not equal to value
             0x4000 => {
-                let x = instruction & 0x0F00;
+                let x = (instruction & 0x0F00) >> 8;
                 let value = instruction & 0x00FF;
-                if self.get_register_value(x as usize) != value as u8 {
+                if self.registers[x as usize] != value as u8 {
                     self.pc += 2;
                 }
             }
             // Skip if both register values equal
             0x5000 => {
-                let x = instruction & 0x0F00;
-                let y = instruction & 0x00F0;
-                if self.get_register_value(x as usize) == self.get_register_value(y as usize) {
+                let x = (instruction & 0x0F00) >> 8;
+                let y = (instruction & 0x00F0) >> 4;
+                if self.registers[x as usize] == self.registers[y as usize] {
                     self.pc += 2;
                 }
             }
@@ -131,11 +131,30 @@ impl Chip {
                 let value = (instruction & 0x00FF) as u8;
                 self.registers[register] += value;
             }
+            // Register operations
+            0x8000 => {
+                let operation = instruction & 0x000F;
+                match operation {
+                    // Load
+                    0x0000 => {
+                        let x = (instruction & 0x0F00) >> 8;
+                        let y = (instruction & 0x00F0) >> 4;
+                        self.registers[x as usize] = self.registers[y as usize];
+                    }
+                    // Bitwise OR
+                    0x0001 => {
+                        let x = (instruction & 0x0F00) >> 8;
+                        let y = (instruction & 0x00F0) >> 4;
+                        self.registers[x as usize] |= self.registers[y as usize];
+                    }
+                    _ => {}
+                }
+            }
             //Skip if both register values not equal
             0x9000 => {
                 let x = instruction & 0x0F00;
                 let y = instruction & 0x00F0;
-                if self.get_register_value(x as usize) != self.get_register_value(y as usize) {
+                if self.registers[x as usize] != self.registers[y as usize] {
                     self.pc += 2;
                 }
             }
@@ -196,9 +215,5 @@ impl Chip {
             thread::sleep(Duration::from_millis(2));
         }
         Ok(())
-    }
-
-    fn get_register_value(&self, register_index: usize) -> u8 {
-        return self.memory[self.registers[register_index] as usize];
     }
 }
