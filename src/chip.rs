@@ -1,9 +1,8 @@
 use std::{
     fs::File,
-    io::{BufReader, Error, Read},
+    io::{BufReader, Error, ErrorKind, Read},
     thread,
     time::Duration,
-    usize,
 };
 
 use sdl2::event::Event;
@@ -14,13 +13,16 @@ use super::Display;
 const WIDTH: usize = 64;
 const HEIGHT: usize = 32;
 
+const STACK_SIZE: usize = 16;
+
 pub struct Chip {
     memory: [u8; 4096],
     pc: u16,
     display: Display,
     registers: [u8; 16],
     i: u16,
-    screen: [u8; 64 * 32],
+    screen: [u8; WIDTH * HEIGHT],
+    stack: Vec<u16>,
 }
 
 impl Chip {
@@ -33,7 +35,8 @@ impl Chip {
             display,
             registers: [0; 16],
             i: 0,
-            screen: [0; 64 * 32],
+            screen: [0; WIDTH * HEIGHT],
+            stack: vec![],
         }
     }
 
@@ -56,23 +59,41 @@ impl Chip {
         self.pc += 2;
 
         match nibble {
+            // System Instructions
             0x0000 => match instruction {
+                // Clear
                 0x00E0 => {
-                    println!("Clear screen");
                     self.display.clear_screen()?;
                 }
-                0x00EE => {
-                    println!("Return from subroutine");
-                }
+                // Return from subroutine
+                0x00EE => match self.stack.pop() {
+                    Some(address) => {
+                        self.pc = address;
+                    }
+                    None => {
+                        return Err(Error::new(
+                            ErrorKind::Other,
+                            "Trying to return from the main stack",
+                        ));
+                    }
+                },
                 _ => {}
             },
+
+            // Jump
             0x1000 => {
                 let jump_addr = instruction & 0x0FFF;
                 self.pc = jump_addr;
-                // println!("Jumped to {}", jump_addr);
             }
+            // Call
             0x2000 => {
-                println!("Call subroutine");
+                if self.stack.len() + 1 >= STACK_SIZE {
+                    return Err(Error::new(ErrorKind::Other, "Stack overflow"));
+                }
+                self.stack.push(self.pc);
+
+                let address = instruction & 0x0FFF;
+                self.pc = address;
             }
             0x6000 => {
                 let register = ((instruction & 0x0F00) >> 8) as usize;
