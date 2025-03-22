@@ -1,13 +1,21 @@
 use std::io::Error;
 
 use sdl2::{
-    EventPump, Sdl, VideoSubsystem, pixels::Color, rect::Point, render::Canvas, video::Window,
+    EventPump, Sdl, VideoSubsystem,
+    pixels::{Color, PixelFormatEnum},
+    rect::Rect,
+    render::{Canvas, TextureCreator},
+    video::{Window, WindowContext},
 };
+
+const WIDTH: usize = 64;
+const HEIGHT: usize = 32;
 
 pub struct Display {
     context: Sdl,
     video_system: VideoSubsystem,
     canvas: Canvas<Window>,
+    texture_creator: TextureCreator<WindowContext>,
 }
 
 impl Display {
@@ -35,10 +43,13 @@ impl Display {
         canvas.clear();
         canvas.present();
 
+        let texture_creator = canvas.texture_creator();
+
         Ok(Self {
             context,
             video_system,
             canvas,
+            texture_creator,
         })
     }
 
@@ -51,9 +62,25 @@ impl Display {
         Ok(())
     }
 
-    pub fn draw_pixel(&mut self, x: i32, y: i32, color: Color) -> Result<(), String> {
-        self.canvas.set_draw_color(color);
-        self.canvas.draw_point(Point::new(x, y))?;
+    pub fn draw(&mut self, screen: &[u8]) -> Result<(), String> {
+        let mut texture = self
+            .texture_creator
+            .create_texture_streaming(PixelFormatEnum::RGB24, WIDTH as u32, HEIGHT as u32)
+            .unwrap();
+        texture
+            .with_lock(None, |buffer: &mut [u8], _pitch| {
+                for (i, &pixel) in screen.iter().enumerate() {
+                    let color = if pixel == 1 { 255 } else { 0 };
+                    let offset = i * 3;
+                    buffer[offset] = color;
+                    buffer[offset + 1] = color;
+                    buffer[offset + 2] = color;
+                }
+            })
+            .unwrap();
+
+        self.canvas.copy(&texture, None, None).unwrap();
+        self.canvas.present();
         Ok(())
     }
 }

@@ -11,12 +11,16 @@ use sdl2::keyboard::Keycode;
 
 use super::Display;
 
+const WIDTH: usize = 64;
+const HEIGHT: usize = 32;
+
 pub struct Chip {
     memory: [u8; 4096],
     pc: u16,
     display: Display,
     registers: [u8; 16],
     i: u16,
+    screen: [u8; 64 * 32],
 }
 
 impl Chip {
@@ -29,20 +33,13 @@ impl Chip {
             display,
             registers: [0; 16],
             i: 0,
+            screen: [0; 64 * 32],
         }
     }
 
     pub fn load(&mut self, rom_path: &str) -> Result<(), Error> {
-        println!("Loading");
         let mut file = BufReader::new(File::open(rom_path)?);
         let _ = file.read(&mut self.memory[0x200..])?;
-
-        println!("Loaded rom into memory");
-
-        println!(
-            "1 => {:0x}, 2 => b{:0x}, 3 => {:0x}",
-            self.memory[0x200], self.memory[0x201], self.memory[0x201]
-        );
         Ok(())
     }
 
@@ -97,15 +94,27 @@ impl Chip {
                 let x = (instruction & 0x0F00) >> 8;
                 let y = (instruction & 0x00F0) >> 4;
                 let n = instruction & 0x000F;
-                println!("Draw call for {x} {y} {n}");
-                println!("Value in I => {}", self.memory[self.i as usize]);
-                println!("Value in I => {}", self.i as usize);
-                for i in 0..n {
-                    println!(
-                        "Sprite row {i} value {}",
-                        self.memory[(self.i + i) as usize]
-                    );
+
+                let x = self.registers[x as usize];
+                let y = self.registers[y as usize];
+
+                for row in 0..n {
+                    let sprite_row = self.memory[(self.i + row) as usize];
+
+                    for column in 0..8 {
+                        let pixel = (sprite_row >> (7 - column)) & 1;
+
+                        let screen_x = (x + column) as usize % WIDTH; // Handling overflow modulo
+                        let screen_y = (y + row as u8) as usize % HEIGHT; // Handling overflow modulo
+                        let pixel_index: usize = screen_y * WIDTH + screen_x;
+
+                        if pixel == 1 && self.screen[pixel_index] == 1 {
+                            self.registers[0xF] = 1;
+                        }
+                        self.screen[pixel_index] ^= pixel;
+                    }
                 }
+                self.display.draw(&self.screen).unwrap();
             }
             _ => {
                 println!("Unmatched instructoin {nibble}");
