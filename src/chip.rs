@@ -3,6 +3,7 @@ use std::{
     io::{BufReader, Error, ErrorKind, Read},
     thread,
     time::Duration,
+    usize,
 };
 
 use sdl2::event::Event;
@@ -134,18 +135,72 @@ impl Chip {
             // Register operations
             0x8000 => {
                 let operation = instruction & 0x000F;
+                let x = (instruction & 0x0F00) >> 8;
+                let y = (instruction & 0x00F0) >> 4;
                 match operation {
                     // Load
                     0x0000 => {
-                        let x = (instruction & 0x0F00) >> 8;
-                        let y = (instruction & 0x00F0) >> 4;
                         self.registers[x as usize] = self.registers[y as usize];
                     }
                     // Bitwise OR
                     0x0001 => {
-                        let x = (instruction & 0x0F00) >> 8;
-                        let y = (instruction & 0x00F0) >> 4;
                         self.registers[x as usize] |= self.registers[y as usize];
+                    }
+                    // Bitwise AND
+                    0x0002 => {
+                        self.registers[x as usize] &= self.registers[y as usize];
+                    }
+                    // Bitwise XOR
+                    0x0003 => {
+                        self.registers[x as usize] ^= self.registers[y as usize];
+                    }
+                    // Add with carry
+                    0x0004 => {
+                        // Could have used Rust's overflowing_add() But I need to implement it by
+                        // myself.
+                        let sum =
+                            self.registers[x as usize] as u16 + self.registers[y as usize] as u16;
+                        self.registers[x as usize] = (sum & 0xFF) as u8; // Short for 0x00FF
+                        self.registers[0xF] = if sum > 0xFF { 1 } else { 0 }
+                    }
+                    // Subtract with borrow
+                    0x0005 => {
+                        let x_value = self.registers[x as usize];
+                        let y_value = self.registers[y as usize];
+                        if x_value >= y_value {
+                            self.registers[0xF] = 1;
+                            self.registers[x as usize] -= self.registers[y as usize];
+                        } else {
+                            self.registers[0xF] = 0;
+                            self.registers[x as usize] = 255 + x_value - y_value; // Wrap around if
+                            // result goes negative
+                        }
+                    }
+                    // Right Shift By 1
+                    0x0006 => {
+                        self.registers[0xF] = self.registers[x as usize] & 0x01; // Getting Least
+                        // Significant Bit
+                        self.registers[x as usize] >>= 1;
+                    }
+                    // Subtract register x from register y
+                    0x0007 => {
+                        let x_value = self.registers[x as usize];
+                        let y_value = self.registers[y as usize];
+                        if y_value >= x_value {
+                            self.registers[0xF] = 1;
+                            self.registers[x as usize] =
+                                self.registers[y as usize] - self.registers[x as usize];
+                        } else {
+                            self.registers[0xF] = 0;
+                            self.registers[x as usize] = 255 + x_value - y_value; // Wrap around if
+                            // result goes negative
+                        }
+                    }
+                    // Left Shift By 1
+                    0x0008 => {
+                        self.registers[0xF] = (self.registers[x as usize] & 0x80) >> 7; // Getting
+                        // Most Significant Bit. (0x80 in binary is 10000000)
+                        self.registers[x as usize] <<= 1;
                     }
                     _ => {}
                 }
