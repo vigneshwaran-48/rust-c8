@@ -1,9 +1,9 @@
 use std::{
-    collections::HashMap,
     fs::File,
     io::{BufReader, Error, Read},
     thread,
     time::Duration,
+    usize,
 };
 
 use sdl2::event::Event;
@@ -47,16 +47,16 @@ impl Chip {
     }
 
     pub fn execute_instruction(&mut self) -> Result<(), Error> {
-        let high = self.memory[self.pc as usize] as u16;
         if (self.pc + 1) >= 4096 {
             return Ok(());
         }
+        let high = self.memory[self.pc as usize] as u16;
         let low = self.memory[(self.pc + 1) as usize] as u16;
         let instruction = (high << 8) | low;
 
         let nibble = instruction & 0xF000;
 
-        self.pc += 1;
+        self.pc += 2;
 
         match nibble {
             0x0000 => match instruction {
@@ -72,7 +72,7 @@ impl Chip {
             0x1000 => {
                 let jump_addr = instruction & 0x0FFF;
                 self.pc = jump_addr;
-                println!("Jumped to {}", jump_addr);
+                // println!("Jumped to {}", jump_addr);
             }
             0x2000 => {
                 println!("Call subroutine");
@@ -98,6 +98,14 @@ impl Chip {
                 let y = (instruction & 0x00F0) >> 4;
                 let n = instruction & 0x000F;
                 println!("Draw call for {x} {y} {n}");
+                println!("Value in I => {}", self.memory[self.i as usize]);
+                println!("Value in I => {}", self.i as usize);
+                for i in 0..n {
+                    println!(
+                        "Sprite row {i} value {}",
+                        self.memory[(self.i + i) as usize]
+                    );
+                }
             }
             _ => {
                 println!("Unmatched instructoin {nibble}");

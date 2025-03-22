@@ -1,6 +1,8 @@
 use std::io::Error;
 
-use sdl2::{EventPump, Sdl, VideoSubsystem, pixels::Color, render::Canvas, video::Window};
+use sdl2::{
+    EventPump, Sdl, VideoSubsystem, pixels::Color, rect::Point, render::Canvas, video::Window,
+};
 
 pub struct Display {
     context: Sdl,
@@ -46,6 +48,12 @@ impl Display {
 
     pub fn clear_screen(&mut self) -> Result<(), Error> {
         self.canvas.clear();
+        Ok(())
+    }
+
+    pub fn draw_pixel(&mut self, x: i32, y: i32, color: Color) -> Result<(), String> {
+        self.canvas.set_draw_color(color);
+        self.canvas.draw_point(Point::new(x, y))?;
         Ok(())
     }
 }
