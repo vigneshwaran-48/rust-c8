@@ -24,6 +24,7 @@ pub struct Chip {
     registers: [u8; 16],
     i: u16,
     dt: u8, // Delay Timer
+    st: u8, // Sound Timer
     waiting_for_key: bool,
     waiting_key_register: usize,
     screen: [u8; WIDTH * HEIGHT],
@@ -56,13 +57,17 @@ impl Chip {
         ]
         .into();
 
+        let mut memory = [0; 4096];
+        Self::load_fonts(&mut memory);
+
         Self {
-            memory: [0; 4096],
+            memory,
             pc: 0x200,
             display,
             registers: [0; 16],
             i: 0,
             dt: 0,
+            st: 0,
             waiting_for_key: false,
             waiting_key_register: 0x0,
             screen: [0; WIDTH * HEIGHT],
@@ -314,12 +319,55 @@ impl Chip {
                 let x = (instruction & 0x0F00) >> 8;
                 let operation = instruction & 0x00FF;
                 match operation {
+                    // Set delay timer to register
                     0x0007 => {
                         self.registers[x as usize] = self.dt;
                     }
-                    0x00A => {
+                    // Wait for key input
+                    0x000A => {
                         self.waiting_for_key = true;
                         self.waiting_key_register = x as usize;
+                    }
+                    // Set register value to delay timer
+                    0x0015 => {
+                        self.dt = self.registers[x as usize];
+                    }
+                    // Set register value to sound timer.
+                    0x0018 => {
+                        // Need to implement the actual sound capability later.
+                        self.st = self.registers[x as usize];
+                    }
+
+                    // Memory Operations
+
+                    // Increment I register with register value
+                    0x001E => {
+                        self.i += self.registers[x as usize] as u16;
+                    }
+                    // Set I register to vx's digit start address
+                    0x0029 => {
+                        self.i = (self.registers[x as usize] as u16) * 5; // Each digit sprite is 5 bytes long. (If digit is 2 in vx then 2 x 5 = 10. the sprite start address for the digit 2 is 10)
+                    }
+                    // Store BCD representation of digit
+                    0x0033 => {
+                        let digit = self.registers[x as usize];
+                        self.memory[self.i as usize] = digit / 100;
+                        self.memory[self.i as usize + 1] = (digit % 100) / 10;
+                        self.memory[self.i as usize + 2] = digit % 10;
+                    }
+                    // Store register v0 to vx values from register I location.
+                    0x0055 => {
+                        // In future we can implement Super Chip 8 behaviour of incrementing I register.
+                        for i in 0..x + 1 {
+                            self.memory[(self.i + i) as usize] = self.registers[i as usize];
+                        }
+                    }
+                    // Read values from I location to v0 to vx registers.
+                    0x0065 => {
+                        // In future we can implement Super Chip 8 behaviour of incrementing I register.
+                        for i in 0..x + 1 {
+                            self.registers[i as usize] = self.memory[(self.i + i) as usize];
+                        }
                     }
                     _ => {}
                 }
@@ -376,5 +424,29 @@ impl Chip {
             thread::sleep(Duration::from_millis(2));
         }
         Ok(())
+    }
+
+    fn load_fonts(memory: &mut [u8]) {
+        let font_data: [u8; 80] = [
+            0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+            0x20, 0x60, 0x20, 0x20, 0x70, // 1
+            0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+            0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+            0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+            0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+            0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+            0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+            0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+            0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+            0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+            0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+            0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+            0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+            0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+            0xF0, 0x80, 0xF0, 0x80, 0x80, // F
+        ];
+
+        // Load font data into memory starting at 0x000
+        memory[..font_data.len()].copy_from_slice(&font_data);
     }
 }
