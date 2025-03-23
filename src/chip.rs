@@ -15,7 +15,7 @@ use super::Display;
 const WIDTH: usize = 64;
 const HEIGHT: usize = 32;
 
-const STACK_SIZE: usize = 16;
+const STACK_SIZE: usize = 30;
 
 pub struct Chip {
     memory: [u8; 4096],
@@ -101,6 +101,7 @@ impl Chip {
                 // Clear
                 0x00E0 => {
                     self.display.clear_screen()?;
+                    self.screen = [0; WIDTH * HEIGHT];
                 }
                 // Return from subroutine
                 0x00EE => match self.stack.pop() {
@@ -124,6 +125,7 @@ impl Chip {
             }
             // Call
             0x2000 => {
+                println!("{:?}", self.stack);
                 if self.stack.len() + 1 >= STACK_SIZE {
                     return Err(Error::new(ErrorKind::Other, "Stack overflow"));
                 }
@@ -205,11 +207,11 @@ impl Chip {
                         let y_value = self.registers[y as usize];
                         if x_value >= y_value {
                             self.registers[0xF] = 1;
-                            self.registers[x as usize] -= self.registers[y as usize];
+                            self.registers[x as usize] = (x_value as u16 - y_value as u16) as u8;
                         } else {
                             self.registers[0xF] = 0;
                             self.registers[x as usize] =
-                                (255 + x_value as u16 - y_value as u16) as u8; // Wrap around if
+                                (256 + x_value as u16 - y_value as u16) as u8; // Wrap around if
                             // result goes negative
                         }
                     }
@@ -225,12 +227,11 @@ impl Chip {
                         let y_value = self.registers[y as usize];
                         if y_value >= x_value {
                             self.registers[0xF] = 1;
-                            self.registers[x as usize] =
-                                self.registers[y as usize] - self.registers[x as usize];
+                            self.registers[x as usize] = (y_value as u16 - x_value as u16) as u8;
                         } else {
                             self.registers[0xF] = 0;
                             self.registers[x as usize] =
-                                (255 + x_value as u16 - y_value as u16) as u8; // Wrap around if
+                                (256 + x_value as u16 - y_value as u16) as u8; // Wrap around if
                             // result goes negative
                         }
                     }
@@ -245,8 +246,8 @@ impl Chip {
             }
             //Skip if both register values not equal
             0x9000 => {
-                let x = instruction & 0x0F00;
-                let y = instruction & 0x00F0;
+                let x = (instruction & 0x0F00) >> 8;
+                let y = (instruction & 0x00F0) >> 4;
                 if self.registers[x as usize] != self.registers[y as usize] {
                     self.pc += 2;
                 }
