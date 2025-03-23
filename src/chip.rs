@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufReader, Error, ErrorKind, Read},
     thread,
@@ -24,11 +25,33 @@ pub struct Chip {
     i: u16,
     screen: [u8; WIDTH * HEIGHT],
     stack: Vec<u16>,
+    keypad: [bool; 16],
+    keypad_map: HashMap<Keycode, usize>,
 }
 
 impl Chip {
     pub fn new() -> Self {
         let display = Display::init().expect("Error while initializing display");
+
+        let keypad_map: HashMap<Keycode, usize> = [
+            (Keycode::Num1, 0x1),
+            (Keycode::Num2, 0x2),
+            (Keycode::Num3, 0x3),
+            (Keycode::Num4, 0xC),
+            (Keycode::Q, 0x4),
+            (Keycode::W, 0x5),
+            (Keycode::E, 0x6),
+            (Keycode::R, 0xD),
+            (Keycode::A, 0x7),
+            (Keycode::S, 0x8),
+            (Keycode::D, 0x9),
+            (Keycode::F, 0xE),
+            (Keycode::Z, 0xA),
+            (Keycode::X, 0x0),
+            (Keycode::C, 0xB),
+            (Keycode::V, 0xF),
+        ]
+        .into();
 
         Self {
             memory: [0; 4096],
@@ -38,6 +61,8 @@ impl Chip {
             i: 0,
             screen: [0; WIDTH * HEIGHT],
             stack: vec![],
+            keypad: [false; 16],
+            keypad_map,
         }
     }
 
@@ -256,6 +281,26 @@ impl Chip {
                 }
                 self.display.draw(&self.screen).unwrap();
             }
+            // Keyboard input
+            0xE000 => {
+                let operation = instruction & 0x00FF;
+                let x = (instruction & 0x0F00) >> 8;
+
+                match operation {
+                    // Skip instruction if key pressed
+                    0x009E => {
+                        if self.keypad[self.registers[x as usize] as usize] {
+                            self.pc += 2;
+                        }
+                    }
+                    0x00A1 => {
+                        if !self.keypad[self.registers[x as usize] as usize] {
+                            self.pc += 2;
+                        }
+                    }
+                    _ => {}
+                }
+            }
             _ => {
                 println!("Unmatched instructoin {nibble}");
             }
@@ -269,11 +314,24 @@ impl Chip {
         'running: loop {
             for event in event_pump.poll_iter() {
                 match event {
-                    Event::Quit { .. }
-                    | Event::KeyDown {
-                        keycode: Some(Keycode::Escape),
-                        ..
-                    } => break 'running,
+                    Event::KeyUp {
+                        keycode: Some(key), ..
+                    } => {
+                        if let Some(key_index) = self.keypad_map.get(&key) {
+                            self.keypad[*key_index] = false;
+                        }
+                    }
+                    Event::KeyDown {
+                        keycode: Some(key), ..
+                    } => {
+                        if key == Keycode::Escape {
+                            break 'running;
+                        }
+                        if let Some(key_index) = self.keypad_map.get(&key) {
+                            self.keypad[*key_index] = true;
+                        }
+                    }
+                    Event::Quit { .. } => break 'running,
                     _ => {}
                 }
             }
