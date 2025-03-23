@@ -3,9 +3,9 @@ use std::{
     io::{BufReader, Error, ErrorKind, Read},
     thread,
     time::Duration,
-    usize,
 };
 
+use rand::random;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
@@ -216,6 +216,18 @@ impl Chip {
             // Set the value to I register
             0xA000 => {
                 self.i = instruction & 0x0FFF;
+            }
+            // Jump to address with offset.
+            0xB000 => {
+                let address = instruction & 0x0FFF;
+                self.pc = address.wrapping_add(self.registers[0x0] as u16);
+            }
+            // Generate random number
+            0xC000 => {
+                let x = (instruction & 0x0F00) >> 8;
+                let mask = (instruction & 0x00FF) as u8;
+                let rand_num: u8 = random();
+                self.registers[x as usize] = rand_num & mask;
             }
             // Draw to the screen from the given position
             0xD000 => {

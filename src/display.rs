@@ -1,9 +1,8 @@
 use std::io::Error;
 
 use sdl2::{
-    EventPump, Sdl, VideoSubsystem,
+    EventPump, Sdl,
     pixels::{Color, PixelFormatEnum},
-    rect::Rect,
     render::{Canvas, TextureCreator},
     video::{Window, WindowContext},
 };
@@ -13,7 +12,6 @@ const HEIGHT: usize = 32;
 
 pub struct Display {
     context: Sdl,
-    video_system: VideoSubsystem,
     canvas: Canvas<Window>,
     texture_creator: TextureCreator<WindowContext>,
 }
@@ -47,7 +45,6 @@ impl Display {
 
         Ok(Self {
             context,
-            video_system,
             canvas,
             texture_creator,
         })
