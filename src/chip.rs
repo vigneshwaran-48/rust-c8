@@ -23,6 +23,9 @@ pub struct Chip {
     display: Display,
     registers: [u8; 16],
     i: u16,
+    dt: u8, // Delay Timer
+    waiting_for_key: bool,
+    waiting_key_register: usize,
     screen: [u8; WIDTH * HEIGHT],
     stack: Vec<u16>,
     keypad: [bool; 16],
@@ -59,6 +62,9 @@ impl Chip {
             display,
             registers: [0; 16],
             i: 0,
+            dt: 0,
+            waiting_for_key: false,
+            waiting_key_register: 0x0,
             screen: [0; WIDTH * HEIGHT],
             stack: vec![],
             keypad: [false; 16],
@@ -155,7 +161,7 @@ impl Chip {
             0x7000 => {
                 let register = ((instruction & 0x0F00) >> 8) as usize;
                 let value = (instruction & 0x00FF) as u8;
-                self.registers[register] += value;
+                self.registers[register] = value.overflowing_add(self.registers[register]).0;
             }
             // Register operations
             0x8000 => {
@@ -197,7 +203,8 @@ impl Chip {
                             self.registers[x as usize] -= self.registers[y as usize];
                         } else {
                             self.registers[0xF] = 0;
-                            self.registers[x as usize] = 255 + x_value - y_value; // Wrap around if
+                            self.registers[x as usize] =
+                                (255 + x_value as u16 - y_value as u16) as u8; // Wrap around if
                             // result goes negative
                         }
                     }
@@ -217,7 +224,8 @@ impl Chip {
                                 self.registers[y as usize] - self.registers[x as usize];
                         } else {
                             self.registers[0xF] = 0;
-                            self.registers[x as usize] = 255 + x_value - y_value; // Wrap around if
+                            self.registers[x as usize] =
+                                (255 + x_value as u16 - y_value as u16) as u8; // Wrap around if
                             // result goes negative
                         }
                     }
@@ -301,6 +309,21 @@ impl Chip {
                     _ => {}
                 }
             }
+            // Timers and Sound
+            0xF000 => {
+                let x = (instruction & 0x0F00) >> 8;
+                let operation = instruction & 0x00FF;
+                match operation {
+                    0x0007 => {
+                        self.registers[x as usize] = self.dt;
+                    }
+                    0x00A => {
+                        self.waiting_for_key = true;
+                        self.waiting_key_register = x as usize;
+                    }
+                    _ => {}
+                }
+            }
             _ => {
                 println!("Unmatched instructoin {nibble}");
             }
@@ -312,6 +335,10 @@ impl Chip {
         let mut event_pump = self.display.event_pump()?;
 
         'running: loop {
+            if self.dt > 0 {
+                self.dt -= 1;
+            }
+
             for event in event_pump.poll_iter() {
                 match event {
                     Event::KeyUp {
@@ -329,14 +356,23 @@ impl Chip {
                         }
                         if let Some(key_index) = self.keypad_map.get(&key) {
                             self.keypad[*key_index] = true;
+
+                            // Fx0A instruction handling
+                            if self.waiting_for_key {
+                                self.registers[self.waiting_key_register] = *key_index as u8;
+                                self.waiting_for_key = false;
+                            }
                         }
                     }
                     Event::Quit { .. } => break 'running,
                     _ => {}
                 }
             }
-            self.execute_instruction()
-                .map_err(|e| format!("Failed to execute instruction: {}", e))?;
+            // Fx0A instruction handling
+            if !self.waiting_for_key {
+                self.execute_instruction()
+                    .map_err(|e| format!("Failed to execute instruction: {}", e))?;
+            }
             thread::sleep(Duration::from_millis(2));
         }
         Ok(())
