@@ -125,7 +125,6 @@ impl Chip {
             }
             // Call
             0x2000 => {
-                println!("{:?}", self.stack);
                 if self.stack.len() + 1 >= STACK_SIZE {
                     return Err(Error::new(ErrorKind::Other, "Stack overflow"));
                 }
