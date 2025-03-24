@@ -1,2 +1,4 @@
 
-![Chip-8 Emulator Running](assets/ibm-logo-working-version.png)
+![IBM LOGO](assets/ibm-logo-working-version.png)
+
+![Airplane Game](assets/ibm-logo-working-version.png)

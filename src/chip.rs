@@ -283,8 +283,8 @@ impl Chip {
                     for column in 0..8 {
                         let pixel = (sprite_row >> (7 - column)) & 1;
 
-                        let screen_x = (x + column) as usize % WIDTH; // Handling overflow modulo
-                        let screen_y = (y + row as u8) as usize % HEIGHT; // Handling overflow modulo
+                        let screen_x = (x as u16 + column) as usize % WIDTH; // Handling overflow modulo
+                        let screen_y = (y as u16 + row) as usize % HEIGHT; // Handling overflow modulo
                         let pixel_index: usize = screen_y * WIDTH + screen_x;
 
                         if pixel == 1 && self.screen[pixel_index] == 1 {
