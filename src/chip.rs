@@ -42,19 +42,19 @@ impl Chip {
             (Keycode::Num1, 0x1),
             (Keycode::Num2, 0x2),
             (Keycode::Num3, 0x3),
-            (Keycode::Num4, 0xC),
-            (Keycode::Q, 0x4),
-            (Keycode::W, 0x5),
-            (Keycode::E, 0x6),
-            (Keycode::R, 0xD),
-            (Keycode::A, 0x7),
-            (Keycode::S, 0x8),
-            (Keycode::D, 0x9),
-            (Keycode::F, 0xE),
-            (Keycode::Z, 0xA),
+            (Keycode::Num4, 0x4),
+            (Keycode::Num5, 0x5),
+            (Keycode::Num6, 0x6),
+            (Keycode::Num7, 0x7),
+            (Keycode::Num8, 0x8),
+            (Keycode::Num9, 0x9),
+            (Keycode::A, 0xA),
+            (Keycode::B, 0xB),
+            (Keycode::C, 0xC),
+            (Keycode::D, 0xD),
+            (Keycode::E, 0xE),
+            (Keycode::F, 0xF),
             (Keycode::X, 0x0),
-            (Keycode::C, 0xB),
-            (Keycode::V, 0xF),
         ]
         .into();
 
@@ -464,7 +464,7 @@ impl Chip {
 
             let source = SineWave::new(440.0)
                 .amplify(0.2)
-                .take_duration(Duration::from_millis(50));
+                .take_duration(Duration::from_millis(150));
             sink.append(source);
             sink.sleep_until_end();
         });
