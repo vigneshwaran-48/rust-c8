@@ -7,6 +7,7 @@ use std::{
 };
 
 use rand::random;
+use rodio::{OutputStream, Sink, Source, source::SineWave};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 
@@ -387,6 +388,11 @@ impl Chip {
                 self.dt -= 1;
             }
 
+            if self.st > 0 {
+                Self::beep();
+                self.st -= 1;
+            }
+
             for event in event_pump.poll_iter() {
                 match event {
                     Event::KeyUp {
@@ -448,5 +454,19 @@ impl Chip {
 
         // Load font data into memory starting at 0x000
         memory[..font_data.len()].copy_from_slice(&font_data);
+    }
+
+    fn beep() {
+        thread::spawn(|| {
+            let (_stream, stream_handle) =
+                OutputStream::try_default().expect("Unable to get system sound device");
+            let sink = Sink::try_new(&stream_handle).expect("Error while creating sink");
+
+            let source = SineWave::new(440.0)
+                .amplify(0.2)
+                .take_duration(Duration::from_millis(50));
+            sink.append(source);
+            sink.sleep_until_end();
+        });
     }
 }
